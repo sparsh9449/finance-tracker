@@ -5,6 +5,7 @@ from database import engine, Base
 import models  # noqa: F401 — registers all ORM models with Base
 from routers import plaid as plaid_router
 from routers import transactions as transactions_router
+from routers import subscriptions as subscriptions_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,6 +24,7 @@ app.add_middleware(
 
 app.include_router(plaid_router.router)
 app.include_router(transactions_router.router)
+app.include_router(subscriptions_router.router)
 
 @app.get("/health")
 def health():
