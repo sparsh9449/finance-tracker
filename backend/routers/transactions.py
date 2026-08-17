@@ -5,6 +5,7 @@ import models
 import decimal
 from routers.plaid import get_plaid_client, DEMO_USER_EMAIL
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
+from plaid.model.transactions_refresh_request import TransactionsRefreshRequest
 from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.exceptions import ApiException
 
@@ -42,6 +43,12 @@ def _sync_accounts(item: models.PlaidItem, db: Session, client):
 
 def sync_item(item: models.PlaidItem, db: Session, client) -> dict:
     _sync_accounts(item, db, client)
+
+    # Tell Plaid to pull fresh data — required in Sandbox to seed transactions
+    try:
+        client.transactions_refresh(TransactionsRefreshRequest(access_token=item.access_token))
+    except ApiException:
+        pass  # non-fatal, sandbox may already have data
 
     cursor = item.cursor or ""
     counts = {"added": 0, "modified": 0, "removed": 0}
