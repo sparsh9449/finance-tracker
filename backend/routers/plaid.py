@@ -22,7 +22,6 @@ def get_plaid_client():
     if _plaid_client is None:
         env_map = {
             "sandbox": plaid.Environment.Sandbox,
-            "development": plaid.Environment.Development,
             "production": plaid.Environment.Production,
         }
         env = os.getenv("PLAID_ENV", "sandbox").lower()
