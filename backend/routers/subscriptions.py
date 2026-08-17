@@ -9,19 +9,31 @@ import datetime
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
-# (name, expected_gap_days, tolerance_days)
+# Each tuple: (label, expected_gap_days, tolerance_days).
+# A charge qualifies as a given frequency if the average gap between charges
+# is within `tolerance` days of the expected gap, AND no individual gap
+# deviates more than 2x the tolerance (catches months with 28 vs 31 days).
 FREQUENCY_WINDOWS = [
-    ("weekly",   7,   3),
-    ("monthly",  30,  7),
-    ("annual",   365, 30),
+    ("weekly",  7,   3),
+    ("monthly", 30,  7),
+    ("annual",  365, 30),
 ]
 
 
 def _merchant_key(txn: models.Transaction) -> str:
+    # Prefer the cleaner merchant_name Plaid provides; fall back to raw name.
     return (txn.merchant_name or txn.name or "").lower().strip()
 
 
 def _infer_frequency(gaps: list[int]) -> str | None:
+    """
+    Given a list of day-gaps between consecutive charges, return the billing
+    frequency ("weekly" / "monthly" / "annual") or None if no pattern matches.
+
+    We use average gap to handle slight calendar drift (e.g. Feb vs March),
+    then verify each individual gap isn't too far off so we don't false-positive
+    on merchants that happen to charge twice but irregularly.
+    """
     if not gaps:
         return None
     avg = sum(gaps) / len(gaps)
@@ -32,24 +44,37 @@ def _infer_frequency(gaps: list[int]) -> str | None:
 
 
 def _amounts_consistent(amounts: list[float]) -> bool:
+    """
+    Returns True if all charges are within 10% of the mean (or $1, whichever
+    is larger). The $1 floor avoids rejecting $0.99 vs $1.09 as inconsistent.
+    """
     avg = sum(amounts) / len(amounts)
-    threshold = max(avg * 0.10, 1.0)  # 10% or $1, whichever is larger
+    threshold = max(avg * 0.10, 1.0)
     return all(abs(a - avg) <= threshold for a in amounts)
 
 
 def detect_subscriptions(db: Session, account_ids: list[str]) -> list[dict]:
+    """
+    Core detection algorithm:
+    1. Pull all settled (non-pending, non-removed) debit transactions.
+    2. Group by merchant name.
+    3. For each group with 2+ charges, check amount consistency and interval
+       regularity. Both must pass for a merchant to be flagged as a subscription.
+    4. Return a list of detected subscriptions with frequency and average amount.
+    """
     txns = (
         db.query(models.Transaction)
         .filter(
             models.Transaction.account_id.in_(account_ids),
             models.Transaction.removed == False,
             models.Transaction.pending == False,
-            models.Transaction.amount > 0,  # positive = money out in Plaid
+            models.Transaction.amount > 0,  # Plaid: positive amount = money leaving account
         )
         .order_by(models.Transaction.date)
         .all()
     )
 
+    # Group transactions by merchant so we can analyze each merchant's history.
     groups: dict[str, list[models.Transaction]] = defaultdict(list)
     for t in txns:
         key = _merchant_key(t)
@@ -84,6 +109,8 @@ def detect_subscriptions(db: Session, account_ids: list[str]) -> list[dict]:
 
 
 def save_subscriptions(db: Session, detected: list[dict]):
+    """Upsert detected subscriptions. alerted_amount is only set on first insert
+    so the scheduler can diff against it to detect price changes later."""
     for sub in detected:
         existing = (
             db.query(models.Subscription)
