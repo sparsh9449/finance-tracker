@@ -8,6 +8,7 @@ from plaid.model.transactions_sync_request import TransactionsSyncRequest
 from plaid.model.transactions_refresh_request import TransactionsRefreshRequest
 from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.exceptions import ApiException
+from categorizer import categorize
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -66,6 +67,7 @@ def sync_item(item: models.PlaidItem, db: Session, client) -> dict:
 
         for txn in resp.added:
             if not db.get(models.Transaction, txn.transaction_id):
+                plaid_cat = _get_category(txn)
                 db.add(models.Transaction(
                     id=txn.transaction_id,
                     account_id=txn.account_id,
@@ -73,7 +75,7 @@ def sync_item(item: models.PlaidItem, db: Session, client) -> dict:
                     date=txn.date,
                     name=txn.name,
                     merchant_name=txn.merchant_name,
-                    category=_get_category(txn),
+                    category=categorize(txn.name, txn.merchant_name, plaid_cat),
                     pending=txn.pending,
                 ))
                 counts["added"] += 1
