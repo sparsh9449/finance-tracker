@@ -6,11 +6,16 @@ import models  # noqa: F401 — registers all ORM models with Base
 from routers import plaid as plaid_router
 from routers import transactions as transactions_router
 from routers import subscriptions as subscriptions_router
+from scheduler import make_scheduler, run_sync_and_detect
+
+_scheduler = make_scheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _scheduler.start()
     yield
+    _scheduler.shutdown(wait=False)
 
 app = FastAPI(title="Finance Tracker API", lifespan=lifespan)
 
@@ -29,3 +34,9 @@ app.include_router(subscriptions_router.router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+@app.post("/alerts/trigger")
+def trigger_alerts():
+    """Manually fire the daily job — useful for testing without waiting 24h."""
+    run_sync_and_detect()
+    return {"status": "done"}
