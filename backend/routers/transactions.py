@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, extract
 from sqlalchemy.orm import Session
 from database import get_db
 import models
@@ -121,6 +122,48 @@ def sync_transactions(db: Session = Depends(get_db)):
             total[k] += result[k]
 
     return {"status": "ok", **total}
+
+
+@router.get("/summary")
+def get_summary(db: Session = Depends(get_db)):
+    base = (
+        db.query(models.Transaction)
+        .filter(
+            models.Transaction.removed == False,
+            models.Transaction.pending == False,
+            models.Transaction.amount > 0,
+        )
+    )
+    by_category = (
+        base.with_entities(
+            models.Transaction.category,
+            func.sum(models.Transaction.amount).label("total"),
+        )
+        .group_by(models.Transaction.category)
+        .all()
+    )
+    by_month = (
+        base.with_entities(
+            extract("year", models.Transaction.date).label("year"),
+            extract("month", models.Transaction.date).label("month"),
+            func.sum(models.Transaction.amount).label("total"),
+        )
+        .group_by("year", "month")
+        .order_by("year", "month")
+        .all()
+    )
+    total = sum(float(r.total) for r in by_category)
+    return {
+        "total_spend": round(total, 2),
+        "by_category": [
+            {"category": r.category or "UNCATEGORIZED", "total": round(float(r.total), 2)}
+            for r in sorted(by_category, key=lambda r: r.total, reverse=True)
+        ],
+        "by_month": [
+            {"month": f"{int(r.year)}-{int(r.month):02d}", "total": round(float(r.total), 2)}
+            for r in by_month
+        ],
+    }
 
 
 @router.get("/")
