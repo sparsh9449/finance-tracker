@@ -55,7 +55,7 @@ def create_link_token(db: Session = Depends(get_db)):
         req = LinkTokenCreateRequest(
             products=[Products("transactions")],
             client_name="Finance Tracker",
-            country_codes=[CountryCode("US")],
+            country_codes=[CountryCode("US"), CountryCode("CA")],
             language="en",
             user=LinkTokenCreateRequestUser(client_user_id=str(user.id)),
         )
