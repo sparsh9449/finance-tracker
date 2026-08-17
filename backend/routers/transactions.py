@@ -50,14 +50,17 @@ def sync_item(item: models.PlaidItem, db: Session, client) -> dict:
     except ApiException:
         pass  # non-fatal, sandbox may already have data
 
-    cursor = item.cursor or ""
+    cursor = item.cursor  # None on first run — do NOT send empty string to Plaid
     counts = {"added": 0, "modified": 0, "removed": 0}
 
     while True:
         try:
-            resp = client.transactions_sync(
+            req = (
                 TransactionsSyncRequest(access_token=item.access_token, cursor=cursor)
+                if cursor
+                else TransactionsSyncRequest(access_token=item.access_token)
             )
+            resp = client.transactions_sync(req)
         except ApiException as e:
             raise HTTPException(status_code=400, detail=str(e.body))
 
@@ -90,7 +93,7 @@ def sync_item(item: models.PlaidItem, db: Session, client) -> dict:
                 counts["removed"] += 1
 
         db.commit()
-        cursor = resp.next_cursor
+        cursor = resp.next_cursor or None
         if not resp.has_more:
             break
 
