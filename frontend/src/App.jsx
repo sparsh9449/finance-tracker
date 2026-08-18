@@ -1,28 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import Home from './Home'
 import ConnectBank from './ConnectBank'
 import Dashboard from './Dashboard'
-import { api } from './api'
 
 export default function App() {
-  const [view, setView] = useState('loading')
-
-  useEffect(() => {
-    api.get('/transactions/?limit=1')
-      .then(data => setView(data.length > 0 ? 'dashboard' : 'connect'))
-      .catch(() => setView('connect'))
-  }, [])
-
-  if (view === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-gray-400">
-        Loading...
-      </div>
-    )
-  }
+  const [view, setView] = useState('home')
 
   if (view === 'connect') {
-    return <ConnectBank onConnected={() => setView('dashboard')} />
+    return <ConnectBank onConnected={() => setView('home')} />
   }
-
-  return <Dashboard onConnect={() => setView('connect')} />
+  if (view === 'dashboard') {
+    return <Dashboard onHome={() => setView('home')} onConnect={() => setView('connect')} />
+  }
+  return <Home onDashboard={() => setView('dashboard')} onConnect={() => setView('connect')} />
 }

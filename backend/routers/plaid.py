@@ -86,3 +86,44 @@ def exchange_token(body: ExchangeRequest, db: Session = Depends(get_db)):
         db.commit()
 
     return {"status": "connected", "item_id": item_id}
+
+
+@router.get("/items")
+def get_items(db: Session = Depends(get_db)):
+    user = db.query(models.User).filter_by(email=DEMO_USER_EMAIL).first()
+    if not user:
+        return []
+    items = db.query(models.PlaidItem).filter_by(user_id=user.id).all()
+    result = []
+    for item in items:
+        accounts = db.query(models.Account).filter_by(plaid_item_id=item.id).all()
+        result.append({
+            "item_id": item.item_id,
+            "accounts": [
+                {"id": a.id, "name": a.name, "type": a.type, "subtype": a.subtype}
+                for a in accounts
+            ],
+        })
+    return result
+
+
+@router.delete("/items/{item_id}")
+def disconnect_item(item_id: str, db: Session = Depends(get_db)):
+    item = db.query(models.PlaidItem).filter_by(item_id=item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    account_ids = [a.id for a in db.query(models.Account).filter_by(plaid_item_id=item.id).all()]
+
+    if account_ids:
+        db.query(models.Subscription).filter(
+            models.Subscription.account_id.in_(account_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.Transaction).filter(
+            models.Transaction.account_id.in_(account_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.Account).filter_by(plaid_item_id=item.id).delete()
+
+    db.delete(item)
+    db.commit()
+    return {"status": "disconnected"}

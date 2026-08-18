@@ -152,7 +152,7 @@ function TransactionTable({ transactions }) {
   )
 }
 
-export default function Dashboard({ onConnect }) {
+export default function Dashboard({ onConnect, onHome }) {
   const [summary, setSummary]           = useState(null)
   const [subscriptions, setSubscriptions] = useState([])
   const [transactions, setTransactions] = useState([])
@@ -197,7 +197,9 @@ export default function Dashboard({ onConnect }) {
       <nav className="bg-slate-900 text-white sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div>
-            <h1 className="font-bold text-lg tracking-tight">Finance Tracker</h1>
+            <button onClick={onHome} className="font-bold text-lg tracking-tight hover:text-slate-300 transition">
+              Finance Tracker
+            </button>
             <p className="text-slate-400 text-xs">Personal spending overview</p>
           </div>
           <div className="flex gap-2">

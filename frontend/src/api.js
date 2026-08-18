@@ -8,4 +8,6 @@ export const api = {
       headers: body ? { 'Content-Type': 'application/json' } : {},
       body: body ? JSON.stringify(body) : undefined,
     }).then(r => r.json()),
+  delete: (path) =>
+    fetch(`${BASE}${path}`, { method: 'DELETE' }).then(r => r.json()),
 }
