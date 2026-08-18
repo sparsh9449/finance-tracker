@@ -24,5 +24,5 @@ export default function App() {
     return <ConnectBank onConnected={() => setView('dashboard')} />
   }
 
-  return <Dashboard />
+  return <Dashboard onConnect={() => setView('connect')} />
 }

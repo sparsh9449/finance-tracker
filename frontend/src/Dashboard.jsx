@@ -82,7 +82,7 @@ function SubscriptionList({ subscriptions }) {
   )
 }
 
-export default function Dashboard() {
+export default function Dashboard({ onConnect }) {
   const [summary, setSummary] = useState(null)
   const [subscriptions, setSubscriptions] = useState([])
   const [syncing, setSyncing] = useState(false)
@@ -124,14 +124,23 @@ export default function Dashboard() {
               Total spend: <strong className="text-gray-800">{$(summary.total_spend)}</strong>
             </p>
           </div>
-          <button
-            onClick={sync}
-            disabled={syncing}
-            className="bg-indigo-600 text-white px-5 py-2 rounded-xl text-sm font-semibold
-                       hover:bg-indigo-700 disabled:opacity-50 transition"
-          >
-            {syncing ? 'Syncing...' : 'Sync Now'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onConnect}
+              className="border border-indigo-600 text-indigo-600 px-4 py-2 rounded-xl text-sm font-semibold
+                         hover:bg-indigo-50 transition"
+            >
+              + Connect Account
+            </button>
+            <button
+              onClick={sync}
+              disabled={syncing}
+              className="bg-indigo-600 text-white px-5 py-2 rounded-xl text-sm font-semibold
+                         hover:bg-indigo-700 disabled:opacity-50 transition"
+            >
+              {syncing ? 'Syncing...' : 'Sync Now'}
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
