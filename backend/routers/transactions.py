@@ -46,13 +46,15 @@ def _sync_accounts(item: models.PlaidItem, db: Session, client):
 def sync_item(item: models.PlaidItem, db: Session, client) -> dict:
     _sync_accounts(item, db, client)
 
-    # Tell Plaid to pull fresh data — required in Sandbox to seed transactions
-    try:
-        client.transactions_refresh(TransactionsRefreshRequest(access_token=item.access_token))
-    except ApiException:
-        pass  # non-fatal, sandbox may already have data
-
     cursor = item.cursor  # None on first run — do NOT send empty string to Plaid
+
+    # Only refresh on first sync (no cursor yet) — Sandbox needs this to seed
+    # transactions. Calling it on every sync hits Plaid's rate limit.
+    if cursor is None:
+        try:
+            client.transactions_refresh(TransactionsRefreshRequest(access_token=item.access_token))
+        except ApiException:
+            pass
     counts = {"added": 0, "modified": 0, "removed": 0}
 
     while True:
