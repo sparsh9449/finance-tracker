@@ -127,15 +127,22 @@ def sync_transactions(db: Session = Depends(get_db)):
 
 
 @router.get("/summary")
-def get_summary(db: Session = Depends(get_db)):
-    base = (
-        db.query(models.Transaction)
-        .filter(
-            models.Transaction.removed == False,
-            models.Transaction.pending == False,
-            models.Transaction.amount > 0,
-        )
-    )
+def get_summary(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    db: Session = Depends(get_db),
+):
+    from datetime import date as date_type
+    filters = [
+        models.Transaction.removed == False,
+        models.Transaction.pending == False,
+        models.Transaction.amount > 0,
+    ]
+    if start_date:
+        filters.append(models.Transaction.date >= date_type.fromisoformat(start_date))
+    if end_date:
+        filters.append(models.Transaction.date <= date_type.fromisoformat(end_date))
+    base = db.query(models.Transaction).filter(*filters)
     by_category = (
         base.with_entities(
             models.Transaction.category,
@@ -169,10 +176,24 @@ def get_summary(db: Session = Depends(get_db)):
 
 
 @router.get("/")
-def get_transactions(limit: int = 100, db: Session = Depends(get_db)):
+def get_transactions(
+    limit: int = 100,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    db: Session = Depends(get_db),
+):
+    from datetime import date as date_type
+    filters = [
+        models.Transaction.removed == False,
+        models.Transaction.pending == False,
+    ]
+    if start_date:
+        filters.append(models.Transaction.date >= date_type.fromisoformat(start_date))
+    if end_date:
+        filters.append(models.Transaction.date <= date_type.fromisoformat(end_date))
     rows = (
         db.query(models.Transaction)
-        .filter_by(removed=False, pending=False)
+        .filter(*filters)
         .order_by(models.Transaction.date.desc())
         .limit(limit)
         .all()

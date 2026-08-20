@@ -1,44 +1,64 @@
 import { useState, useEffect } from 'react'
 import { api } from './api'
 
-function AccountCard({ item, onDisconnect, disconnecting }) {
+const $ = (n) => n != null ? `$${parseFloat(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'
+
+function AccountCard({ item, balances, onDisconnect, disconnecting }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-      {item.accounts.map(acct => (
-        <div key={acct.id} className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center
-                            text-indigo-600 font-bold text-sm flex-shrink-0">
-              {acct.name[0].toUpperCase()}
+      {item.accounts.map(acct => {
+        const bal = balances.find(b => b.account_id === acct.id)
+        return (
+          <div key={acct.id} className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center
+                              text-indigo-600 font-bold text-sm flex-shrink-0">
+                {acct.name[0].toUpperCase()}
+              </div>
+              <div>
+                <p className="font-medium text-gray-800 text-sm">{acct.name}</p>
+                <p className="text-xs text-gray-400 capitalize mt-0.5">
+                  {acct.subtype} · {acct.type}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-gray-800 text-sm">{acct.name}</p>
-              <p className="text-xs text-gray-400 capitalize mt-0.5">
-                {acct.subtype} · {acct.type}
-              </p>
+            <div className="flex items-center gap-4">
+              {bal && (
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-gray-900">{$(bal.current)}</p>
+                  {bal.available != null && bal.available !== bal.current && (
+                    <p className="text-xs text-gray-400">{$(bal.available)} avail.</p>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={() => onDisconnect(item.item_id)}
+                disabled={disconnecting === item.item_id}
+                className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 transition font-medium"
+              >
+                {disconnecting === item.item_id ? 'Removing...' : 'Disconnect'}
+              </button>
             </div>
           </div>
-          <button
-            onClick={() => onDisconnect(item.item_id)}
-            disabled={disconnecting === item.item_id}
-            className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 transition font-medium"
-          >
-            {disconnecting === item.item_id ? 'Removing...' : 'Disconnect'}
-          </button>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
 export default function Home({ onDashboard, onConnect }) {
   const [items, setItems]             = useState([])
+  const [balances, setBalances]       = useState([])
   const [loading, setLoading]         = useState(true)
   const [disconnecting, setDisconnecting] = useState(null)
 
   const load = async () => {
-    const data = await api.get('/plaid/items')
+    const [data, bals] = await Promise.all([
+      api.get('/plaid/items'),
+      api.get('/plaid/balances'),
+    ])
     setItems(data)
+    setBalances(bals)
     setLoading(false)
   }
 
@@ -93,6 +113,7 @@ export default function Home({ onDashboard, onConnect }) {
                   <AccountCard
                     key={item.item_id}
                     item={item}
+                    balances={balances}
                     onDisconnect={disconnect}
                     disconnecting={disconnecting}
                   />

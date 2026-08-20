@@ -2,6 +2,24 @@ import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { api } from './api'
 
+const RANGES = [
+  { label: '30d',  days: 30 },
+  { label: '90d',  days: 90 },
+  { label: '1y',   days: 365 },
+  { label: 'All',  days: null },
+]
+
+function dateRange(days) {
+  if (!days) return {}
+  const end = new Date()
+  const start = new Date()
+  start.setDate(end.getDate() - days)
+  return {
+    start_date: start.toISOString().slice(0, 10),
+    end_date: end.toISOString().slice(0, 10),
+  }
+}
+
 const CAT_COLORS = ['#6366f1','#f97316','#10b981','#f59e0b','#ef4444','#8b5cf6','#3b82f6','#ec4899','#9ca3af']
 const FREQ_BADGE = {
   weekly:  'bg-blue-100 text-blue-700',
@@ -157,12 +175,20 @@ export default function Dashboard({ onConnect, onHome }) {
   const [subscriptions, setSubscriptions] = useState([])
   const [transactions, setTransactions] = useState([])
   const [syncing, setSyncing]           = useState(false)
+  const [range, setRange]               = useState(RANGES[0])
 
-  const load = async () => {
+  const load = async (r = range) => {
+    const { start_date, end_date } = dateRange(r.days)
+    const qs = [
+      start_date ? `start_date=${start_date}` : '',
+      end_date   ? `end_date=${end_date}`     : '',
+    ].filter(Boolean).join('&')
+    const sep = qs ? '?' : ''
+    const txnQs = [qs, 'limit=50'].filter(Boolean).join('&')
     const [s, subs, txns] = await Promise.all([
-      api.get('/transactions/summary'),
+      api.get(`/transactions/summary${sep}${qs}`),
       api.get('/subscriptions/'),
-      api.get('/transactions/?limit=50'),
+      api.get(`/transactions/?${txnQs}`),
     ])
     setSummary(s)
     setSubscriptions(subs)
@@ -177,6 +203,12 @@ export default function Dashboard({ onConnect, onHome }) {
     await api.post('/subscriptions/detect')
     await load()
     setSyncing(false)
+  }
+
+  const selectRange = (r) => {
+    setRange(r)
+    setSummary(null)
+    load(r)
   }
 
   if (!summary) {
@@ -202,7 +234,22 @@ export default function Dashboard({ onConnect, onHome }) {
             </button>
             <p className="text-slate-400 text-xs">Personal spending overview</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1 mr-2">
+              {RANGES.map(r => (
+                <button
+                  key={r.label}
+                  onClick={() => selectRange(r)}
+                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                    range.label === r.label
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
             <button
               onClick={onConnect}
               className="text-sm px-4 py-2 rounded-lg border border-slate-600 text-slate-300

@@ -11,6 +11,7 @@ from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUse
 from plaid.model.products import Products
 from plaid.model.country_code import CountryCode
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
+from plaid.model.accounts_balance_get_request import AccountsBalanceGetRequest
 from plaid.exceptions import ApiException
 
 router = APIRouter(prefix="/plaid", tags=["plaid"])
@@ -104,6 +105,32 @@ def get_items(db: Session = Depends(get_db)):
                 for a in accounts
             ],
         })
+    return result
+
+
+@router.get("/balances")
+def get_balances(db: Session = Depends(get_db)):
+    user = db.query(models.User).filter_by(email=DEMO_USER_EMAIL).first()
+    if not user:
+        return []
+    items = db.query(models.PlaidItem).filter_by(user_id=user.id).all()
+    client = get_plaid_client()
+    result = []
+    for item in items:
+        try:
+            resp = client.accounts_balance_get(AccountsBalanceGetRequest(access_token=item.access_token))
+            for acct in resp.accounts:
+                bal = acct.balances
+                result.append({
+                    "account_id": acct.account_id,
+                    "name": acct.name,
+                    "type": str(acct.type),
+                    "subtype": str(acct.subtype),
+                    "current": float(bal.current) if bal.current is not None else None,
+                    "available": float(bal.available) if bal.available is not None else None,
+                })
+        except ApiException:
+            continue
     return result
 
 
