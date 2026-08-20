@@ -9,11 +9,12 @@ A full-stack finance tracker that connects to real bank accounts via Plaid, auto
 ## What it does
 
 - **Bank connection** — OAuth-style Plaid Link flow stores an access token server-side; no credentials ever touch the frontend
+- **Account management** — home page shows all connected accounts with live balances; disconnect any account with one click
 - **Transaction sync** — pulls transactions via Plaid's `transactions/sync` cursor API, deduplicates on re-sync
 - **Auto-categorization** — rule-based merchant name matching layered on top of Plaid's own category field
 - **Subscription detection** — groups transactions by merchant, checks amount consistency (±10%) and interval regularity (weekly / monthly / annual) to flag recurring charges
 - **Email alerts** — daily APScheduler job diffs newly detected subscriptions against last-alerted state and sends email via Resend on new subscriptions or price increases
-- **Dashboard** — spend by category chart, monthly trend chart, and subscription list
+- **Dashboard** — spend by category chart, monthly trend chart, subscription list, and recent transactions; filterable by 30d / 90d / 1y / all time
 
 ---
 
@@ -25,8 +26,8 @@ Browser (Vercel)
     │  REST/JSON
     ▼
 FastAPI backend (Railway)
-    ├── /plaid/*        Plaid Link token + token exchange
-    ├── /transactions/* Sync + summary + categorization
+    ├── /plaid/*        Plaid Link token, token exchange, balances, account management
+    ├── /transactions/* Sync + summary + categorization (date range filtering)
     ├── /subscriptions/* Detection + storage
     └── /alerts/trigger Manual job trigger
     │
